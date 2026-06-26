@@ -102,7 +102,8 @@ async function startServer() {
       }
 
       if (!GROQ_API_KEY) {
-        return res.status(500).json({ error: "Groq API key not configured" });
+        console.error("GROQ_API_KEY is missing from environment variables");
+        return res.status(500).json({ error: "Groq API key not configured on the server. Please check environment variables." });
       }
 
       // Build messages array
@@ -125,6 +126,11 @@ async function startServer() {
 
       try {
         const stream = await callGroqAPI(messages);
+        
+        // Ensure we handle potential axios errors that don't throw immediately
+        if (!stream || typeof stream.on !== 'function') {
+          throw new Error("Failed to initialize stream from Groq API");
+        }
 
         let buffer = '';
         stream.on('data', (chunk: any) => {
@@ -160,9 +166,10 @@ async function startServer() {
           res.write('\n[Error during streaming]');
           res.end();
         });
-      } catch (error) {
-        console.error('Error streaming from Groq:', error);
-        res.write('Sorry, I encountered an error. Please try again later.');
+      } catch (error: any) {
+        console.error('Error streaming from Groq:', error.message || error);
+        const errorMessage = error.response?.data?.error?.message || error.message || "Unknown error";
+        res.write(`Error: ${errorMessage}. Please check your API key and connection.`);
         res.end();
       }
     } catch (error) {
