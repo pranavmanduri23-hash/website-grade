@@ -6,28 +6,31 @@ interface DinoGameProps {
 
 export const DinoGame: React.FC<DinoGameProps> = ({ onGameOver }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const dinoRef = useRef<HTMLDivElement>(null);
   const [gameState, setGameState] = useState<'playing' | 'gameOver'>('playing');
   const [score, setScore] = useState(0);
   
   const stateRef = useRef({
     isJumping: false,
-    gravity: 0.8, // Stronger gravity for less "floaty" feel
+    gravity: 0.6,
     position: 0,
     velocity: 0,
     isGameOver: false,
     score: 0,
-    gameSpeed: 6,
+    gameSpeed: 5,
     obstacles: [] as HTMLDivElement[],
-    dinoElement: null as HTMLDivElement | null,
+    nextObstacleTime: 0,
   });
 
   const restartGame = () => {
     const state = stateRef.current;
     state.isGameOver = false;
     state.score = 0;
-    state.gameSpeed = 6;
+    state.gameSpeed = 5;
     state.position = 0;
     state.isJumping = false;
+    state.velocity = 0;
+    state.nextObstacleTime = 0;
     setScore(0);
     setGameState('playing');
     
@@ -35,125 +38,101 @@ export const DinoGame: React.FC<DinoGameProps> = ({ onGameOver }) => {
     state.obstacles.forEach(obs => obs.remove());
     state.obstacles = [];
     
-    if (state.dinoElement) {
-      state.dinoElement.style.bottom = '0px';
+    if (dinoRef.current) {
+      dinoRef.current.style.bottom = '0px';
     }
   };
 
   useEffect(() => {
     const state = stateRef.current;
-    let obstacleTimeout: NodeJS.Timeout;
+    let animationId: number;
 
-    // Create the Dino Avatar (SVG based for actual Dino look)
-    if (containerRef.current && !state.dinoElement) {
-      const dino = document.createElement("div");
-      dino.style.position = 'absolute';
-      dino.style.left = '100px';
-      dino.style.bottom = '0px';
-      dino.style.width = '50px';
-      dino.style.height = '50px';
-      dino.style.zIndex = '20';
-      
-      // Dino SVG for actual avatar look
-      dino.innerHTML = `
-        <svg viewBox="0 0 100 100" style="width: 100%; height: 100%; filter: drop-shadow(0 0 8px #00D4FF);">
-          <path d="M70,20 L85,20 L85,45 L70,45 L70,35 L60,35 L60,25 L70,25 Z" fill="#00D4FF" />
-          <path d="M20,45 L75,45 L75,75 L20,75 L20,45 Z" fill="#00D4FF" />
-          <path d="M10,55 L20,55 L20,70 L10,70 Z" fill="#00D4FF" />
-          <path d="M25,75 L35,75 L35,85 L25,85 Z" fill="#00D4FF" />
-          <path d="M55,75 L65,75 L65,85 L55,85 Z" fill="#00D4FF" />
-          <rect x="75" y="25" width="5" height="5" fill="#0B0F19" />
-        </svg>
-      `;
-      
-      containerRef.current.appendChild(dino);
-      state.dinoElement = dino;
-    }
+    const gameLoop = () => {
+      if (state.isGameOver) return;
 
-    const jump = () => {
-      if (state.isJumping || state.isGameOver) return;
-      state.isJumping = true;
-      state.velocity = 14; // Snappy jump force
-      
-      const internalJump = () => {
-        if (state.isGameOver) return;
-
-        state.velocity -= state.gravity;
+      // 1. Apply Gravity to Dino
+      if (state.isJumping) {
         state.position += state.velocity;
-        
+        state.velocity -= state.gravity;
+
         if (state.position <= 0) {
           state.position = 0;
           state.isJumping = false;
           state.velocity = 0;
-          if (state.dinoElement) state.dinoElement.style.bottom = '0px';
+        }
+        if (dinoRef.current) {
+          dinoRef.current.style.bottom = `${state.position}px`;
+        }
+      }
+
+      // 2. Score Management
+      state.score += 0.15;
+      const currentScore = Math.floor(state.score);
+      setScore(currentScore);
+
+      // Gradually speed up the game
+      if (currentScore > 0 && currentScore % 100 === 0 && state.gameSpeed < 15) {
+        state.gameSpeed += 0.005;
+      }
+
+      // 3. Spawning Obstacles
+      state.nextObstacleTime -= 1;
+      if (state.nextObstacleTime <= 0) {
+        spawnObstacle();
+        // Randomize interval between obstacles
+        state.nextObstacleTime = Math.random() * (150 - 70) + 70; 
+      }
+
+      // 4. Move Obstacles & Collision Check
+      for (let i = state.obstacles.length - 1; i >= 0; i--) {
+        const obstacle = state.obstacles[i];
+        let currentLeft = parseFloat(obstacle.style.left);
+
+        // Move left
+        currentLeft -= state.gameSpeed;
+        obstacle.style.left = `${currentLeft}px`;
+
+        // Remove out-of-bounds obstacles
+        if (currentLeft < -50) {
+          obstacle.remove();
+          state.obstacles.splice(i, 1);
+          continue;
+        }
+
+        // Hitbox Collision Math
+        // Dino Left: 100px, Width: 50px -> Right edge is 150px
+        if (
+          currentLeft > 100 && currentLeft < 145 && // X-axis overlap
+          state.position < 45 // Y-axis overlap
+        ) {
+          state.isGameOver = true;
+          setGameState('gameOver');
+          onGameOver?.(currentScore);
           return;
         }
-        
-        if (state.dinoElement) {
-          state.dinoElement.style.bottom = `${state.position}px`;
-        }
-        requestAnimationFrame(internalJump);
-      };
-      requestAnimationFrame(internalJump);
+      }
+
+      animationId = requestAnimationFrame(gameLoop);
     };
 
-    const createCactus = () => {
+    const spawnObstacle = () => {
       if (state.isGameOver || !containerRef.current) return;
-
-      const cactus = document.createElement("div");
-      cactus.style.position = 'absolute';
-      cactus.style.bottom = '0';
-      cactus.style.width = '25px';
-      cactus.style.backgroundColor = '#FF1744'; // Red Hazards
-      cactus.style.boxShadow = '0 0 12px #FF1744';
-      cactus.style.borderRadius = '4px 4px 0 0';
+      const obstacle = document.createElement("div");
+      obstacle.style.position = 'absolute';
+      obstacle.style.bottom = '0';
+      obstacle.style.width = '25px';
+      obstacle.style.height = '50px';
+      obstacle.style.left = "800px"; // Start at right wall
       
-      const height = Math.floor(Math.random() * 25) + 35; 
-      cactus.style.height = `${height}px`;
+      // Cactus SVG Look
+      obstacle.innerHTML = `
+        <svg viewBox="0 0 25 50" style="width: 100%; height: 100%; filter: drop-shadow(0 0 8px #FF1744);">
+          <path d="M8,0h8v50H8V0z M0,12h8v8H0V12z M16,16h8v8h-8V16z" fill="#FF1744" />
+        </svg>
+      `;
       
-      let cactusPosition = 850; 
-      cactus.style.left = `${cactusPosition}px`;
-      containerRef.current.appendChild(cactus);
-      state.obstacles.push(cactus);
-
-      const moveCactus = () => {
-        if (state.isGameOver) return;
-
-        cactusPosition -= state.gameSpeed;
-        cactus.style.left = `${cactusPosition}px`;
-
-        // Accurate Collision Detection
-        if (state.dinoElement) {
-          const dinoRect = state.dinoElement.getBoundingClientRect();
-          const cactusRect = cactus.getBoundingClientRect();
-
-          // Shrink hitboxes slightly for fairer gameplay
-          if (
-            dinoRect.right > cactusRect.left + 8 &&
-            dinoRect.left < cactusRect.right - 8 &&
-            dinoRect.bottom > cactusRect.top + 5
-          ) {
-            state.isGameOver = true;
-            setGameState('gameOver');
-            onGameOver?.(state.score);
-            return;
-          }
-        }
-
-        if (cactusPosition < -50) {
-          cactus.remove();
-          state.obstacles = state.obstacles.filter(obs => obs !== cactus);
-          state.score += 10;
-          setScore(state.score);
-          state.gameSpeed += 0.12;
-        } else {
-          requestAnimationFrame(moveCactus);
-        }
-      };
-      requestAnimationFrame(moveCactus);
-
-      const randomTime = Math.floor(Math.random() * 1000) + 700 - (state.gameSpeed * 12);
-      obstacleTimeout = setTimeout(createCactus, Math.max(450, randomTime));
+      containerRef.current.appendChild(obstacle);
+      state.obstacles.push(obstacle);
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -161,23 +140,31 @@ export const DinoGame: React.FC<DinoGameProps> = ({ onGameOver }) => {
         e.preventDefault();
         if (state.isGameOver) {
           restartGame();
-        } else {
-          jump();
+        } else if (!state.isJumping) {
+          state.isJumping = true;
+          state.velocity = 10;
         }
       }
     };
 
+    const handleTouchStart = () => {
+      if (state.isGameOver) {
+        restartGame();
+      } else if (!state.isJumping) {
+        state.isJumping = true;
+        state.velocity = 10;
+      }
+    };
+
     window.addEventListener('keydown', handleKeyDown);
-    createCactus();
+    window.addEventListener('touchstart', handleTouchStart);
+    animationId = requestAnimationFrame(gameLoop);
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      clearTimeout(obstacleTimeout);
+      window.removeEventListener('touchstart', handleTouchStart);
+      cancelAnimationFrame(animationId);
       state.obstacles.forEach(obs => obs.remove());
-      if (state.dinoElement) {
-        state.dinoElement.remove();
-        state.dinoElement = null;
-      }
     };
   }, [onGameOver]);
 
@@ -189,21 +176,32 @@ export const DinoGame: React.FC<DinoGameProps> = ({ onGameOver }) => {
       >
         {/* Score Board */}
         <div className="absolute top-6 right-8 text-3xl font-black text-[#00D4FF] italic drop-shadow-[0_0_10px_#00D4FF]">
-          SCORE: {score}
+          {String(score).padStart(5, '0')}
+        </div>
+
+        {/* Dino Avatar */}
+        <div 
+          ref={dinoRef}
+          className="absolute left-[100px] bottom-0 w-[50px] h-[50px] z-20"
+          style={{ bottom: '0px' }}
+        >
+          <svg viewBox="0 0 44 47" style="width: 100%; height: 100%; filter: drop-shadow(0 0 8px #00D4FF);">
+            <path d="M22,0h18v4h4v12h-4v4h-6v4h6v4h4v4h-2v4h-4v4h-4v4h-2v-4h-4v-4h-4v-4h-2v-8h-4v4h-4v4h-4v-4H4v-4H0v-4h4v-4h4v-4h4v-4h4V4h4V0z" fill="#00D4FF" />
+            <rect x="30" y="8" width="4" height="4" fill="#0B0F19" />
+          </svg>
         </div>
 
         {/* Game Over Overlay */}
         {gameState === 'gameOver' && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 backdrop-blur-md z-30">
-            <h2 className="text-6xl font-black text-[#FF1744] mb-2 drop-shadow-[0_0_20px_#FF1744] tracking-tighter italic">
-              EXTINCT!
+            <h2 className="text-6xl font-black text-[#FF1744] mb-2 drop-shadow-[0_0_20px_#FF1744] tracking-widest italic">
+              GAME OVER
             </h2>
-            <p className="text-[#00D4FF] text-2xl font-bold mb-8">FINAL SCORE: {score}</p>
             <button 
               onClick={restartGame}
-              className="px-10 py-4 bg-[#FF1744] text-white font-black rounded-sm hover:scale-110 transition-transform uppercase tracking-widest neon-border shadow-[0_0_20px_rgba(255,23,68,0.4)]"
+              className="px-10 py-4 bg-[#00D4FF] text-[#0B0F19] font-black rounded-sm hover:scale-110 transition-transform uppercase tracking-widest shadow-[0_0_20px_rgba(0,212,255,0.4)]"
             >
-              Restart
+              Retry
             </button>
           </div>
         )}
@@ -216,7 +214,7 @@ export const DinoGame: React.FC<DinoGameProps> = ({ onGameOver }) => {
         <p className="text-[#00D4FF] font-black uppercase tracking-widest text-sm">
           Press <span className="text-[#FF1744]">SPACE</span> to jump over the hazards
         </p>
-        <p className="text-muted-foreground text-xs italic">Physics-based jumping enabled. Beware of the speed ramp!</p>
+        <p className="text-muted-foreground text-xs italic font-bold">LEGACY DINO LOGIC ENABLED</p>
       </div>
     </div>
   );
