@@ -126,24 +126,27 @@ async function startServer() {
       try {
         const stream = await callGroqAPI(messages);
 
+        let buffer = '';
         stream.on('data', (chunk: any) => {
-          const payload = chunk.toString();
-          const lines = payload.split('\n');
+          buffer += chunk.toString();
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || ''; // Keep the last incomplete line in the buffer
 
           for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const data = line.slice(6).trim();
-              if (data === '[DONE]') continue;
+            const trimmedLine = line.trim();
+            if (!trimmedLine || !trimmedLine.startsWith('data: ')) continue;
+            
+            const data = trimmedLine.slice(6);
+            if (data === '[DONE]') continue;
 
-              try {
-                const parsed = JSON.parse(data);
-                const content = parsed.choices?.[0]?.delta?.content;
-                if (content) {
-                  res.write(content);
-                }
-              } catch (e) {
-                // Ignore parsing errors for partial chunks
+            try {
+              const parsed = JSON.parse(data);
+              const content = parsed.choices?.[0]?.delta?.content;
+              if (content) {
+                res.write(content);
               }
+            } catch (e) {
+              // Ignore parsing errors for partial chunks
             }
           }
         });

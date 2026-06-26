@@ -75,6 +75,15 @@ export default function ClassBot() {
     setIsTyping(true);
     setIsStreaming(true);
 
+    // Add a placeholder bot message for streaming
+    const botPlaceholder: Message = {
+      id: (Date.now() + 1).toString(),
+      text: '',
+      sender: 'bot',
+      timestamp: new Date().toISOString()
+    };
+    setMessages(prev => [...prev, botPlaceholder]);
+
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
