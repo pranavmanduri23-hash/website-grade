@@ -12,22 +12,31 @@ export const GeometryDash: React.FC<GeometryDashProps> = ({ onGameOver }) => {
     score: 0,
     gameRunning: true,
     player: {
-      x: 50,
+      x: 100,
       y: 0,
-      size: 28,
+      size: 30,
       velocityY: 0,
-      jumping: false,
       rotation: 0,
-      rotationVelocity: 0,
       isAirborne: false,
     },
     obstacles: [] as any[],
-    gameSpeed: 5,
+    gameSpeed: 6,
     frameCount: 0,
-    platforms: [] as any[],
-    jumpPower: 0,
-    isHolding: false,
   });
+
+  const restartGame = () => {
+    const state = gameStateRef.current;
+    state.score = 0;
+    state.gameRunning = true;
+    state.player.y = 0;
+    state.player.velocityY = 0;
+    state.player.rotation = 0;
+    state.obstacles = [];
+    state.gameSpeed = 6;
+    state.frameCount = 0;
+    setScore(0);
+    setGameState('playing');
+  };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -39,174 +48,93 @@ export const GeometryDash: React.FC<GeometryDashProps> = ({ onGameOver }) => {
     const state = gameStateRef.current;
     const canvasWidth = canvas.width;
     const canvasHeight = canvas.height;
-    const groundY = canvasHeight - 50;
+    const groundY = canvasHeight - 60;
 
-    // Draw player cube with rotation
     const drawPlayer = () => {
       const { player } = state;
       ctx!.save();
       ctx!.translate(player.x + player.size / 2, player.y + player.size / 2);
       ctx!.rotate(player.rotation);
 
-      // Gradient cube
-      const gradient = ctx!.createLinearGradient(-player.size / 2, -player.size / 2, player.size / 2, player.size / 2);
-      gradient.addColorStop(0, '#FF1744');
-      gradient.addColorStop(1, '#FF6B6B');
-      ctx!.fillStyle = gradient;
+      // Player Cube - Neon Cyan with Red Glow
+      ctx!.fillStyle = '#00D4FF';
+      ctx!.shadowBlur = 15;
+      ctx!.shadowColor = '#00D4FF';
       ctx!.fillRect(-player.size / 2, -player.size / 2, player.size, player.size);
-
-      // Neon red outline
-      ctx!.strokeStyle = '#FF0000';
+      
+      // Outline
+      ctx!.strokeStyle = '#FFFFFF';
       ctx!.lineWidth = 2;
       ctx!.strokeRect(-player.size / 2, -player.size / 2, player.size, player.size);
-
-      // Inner glow
-      ctx!.strokeStyle = 'rgba(255, 107, 107, 0.5)';
-      ctx!.lineWidth = 1;
-      ctx!.strokeRect(-player.size / 2 + 3, -player.size / 2 + 3, player.size - 6, player.size - 6);
 
       ctx!.restore();
     };
 
-    const drawObstacle = (obstacle: any) => {
-      if (obstacle.type === 'spike') {
-        // Spike obstacle
-        ctx!.fillStyle = '#0B0F19';
+    const drawObstacle = (obs: any) => {
+      ctx!.fillStyle = '#FF1744'; // Red Obstacles
+      ctx!.shadowBlur = 10;
+      ctx!.shadowColor = '#FF1744';
+
+      if (obs.type === 'spike') {
         ctx!.beginPath();
-        ctx!.moveTo(obstacle.x, obstacle.y);
-        ctx!.lineTo(obstacle.x + obstacle.width / 2, obstacle.y - obstacle.height);
-        ctx!.lineTo(obstacle.x + obstacle.width, obstacle.y);
+        ctx!.moveTo(obs.x, obs.y);
+        ctx!.lineTo(obs.x + obs.width / 2, obs.y - obs.height);
+        ctx!.lineTo(obs.x + obs.width, obs.y);
         ctx!.closePath();
         ctx!.fill();
-        
-        // Glow
-        ctx!.strokeStyle = 'rgba(255, 0, 0, 0.5)';
-        ctx!.lineWidth = 2;
-        ctx!.stroke();
-      } else if (obstacle.type === 'block') {
-        // Block obstacle
-        ctx!.fillStyle = '#0B0F19';
-        ctx!.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
-        
-        // Neon border
-        ctx!.strokeStyle = '#FF1744';
-        ctx!.lineWidth = 2;
-        ctx!.strokeRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
-      } else if (obstacle.type === 'circle') {
-        // Circle obstacle
-        ctx!.fillStyle = '#0B0F19';
-        ctx!.beginPath();
-        ctx!.arc(obstacle.x + obstacle.width / 2, obstacle.y + obstacle.height / 2, obstacle.width / 2, 0, Math.PI * 2);
-        ctx!.fill();
-        
-        // Neon border
-        ctx!.strokeStyle = '#00D4FF';
-        ctx!.lineWidth = 2;
-        ctx!.stroke();
-      } else if (obstacle.type === 'platform') {
-        // Moving platform
-        ctx!.fillStyle = 'rgba(112, 128, 144, 0.6)';
-        ctx!.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
-        
-        // Cyan border
-        ctx!.strokeStyle = '#00D4FF';
-        ctx!.lineWidth = 2;
-        ctx!.strokeRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+      } else {
+        ctx!.fillRect(obs.x, obs.y - obs.height, obs.width, obs.height);
       }
-    };
-
-    const drawBackground = () => {
-      // Dark blue background
-      ctx!.fillStyle = '#0B0F19';
-      ctx!.fillRect(0, 0, canvasWidth, canvasHeight);
-
-      // Parallax grid pattern
-      const offset = (state.frameCount * state.gameSpeed) % 50;
-      ctx!.strokeStyle = 'rgba(112, 128, 144, 0.15)';
-      ctx!.lineWidth = 1;
-      for (let i = 0; i < canvasWidth; i += 50) {
-        ctx!.beginPath();
-        ctx!.moveTo(i - offset, 0);
-        ctx!.lineTo(i - offset, canvasHeight);
-        ctx!.stroke();
-      }
-
-      // Ground
-      ctx!.fillStyle = '#161B22';
-      ctx!.fillRect(0, groundY, canvasWidth, canvasHeight - groundY);
-      
-      // Neon red ground line
-      ctx!.strokeStyle = '#FF1744';
-      ctx!.lineWidth = 3;
-      ctx!.beginPath();
-      ctx!.moveTo(0, groundY);
-      ctx!.lineTo(canvasWidth, groundY);
-      ctx!.stroke();
-    };
-
-    const drawScore = () => {
-      ctx!.fillStyle = '#00D4FF';
-      ctx!.font = 'bold 24px Arial';
-      ctx!.textAlign = 'left';
-      ctx!.fillText(`Score: ${state.score}`, 20, 40);
-      ctx!.font = '16px Arial';
-      ctx!.fillStyle = '#FF1744';
-      ctx!.fillText(`Speed: ${(state.gameSpeed / 5).toFixed(1)}x`, 20, 65);
-    };
-
-    const checkCollision = (rect1: any, rect2: any) => {
-      return (
-        rect1.x < rect2.x + rect2.width &&
-        rect1.x + rect1.size > rect2.x &&
-        rect1.y < rect2.y + rect2.height &&
-        rect1.y + rect1.size > rect2.y
-      );
+      ctx!.shadowBlur = 0;
     };
 
     const gameLoop = () => {
       if (!state.gameRunning) return;
 
-      drawBackground();
+      // Clear Canvas
+      ctx!.fillStyle = '#0B0F19';
+      ctx!.fillRect(0, 0, canvasWidth, canvasHeight);
 
+      // Draw Ground - RED LINE AS REQUESTED
+      ctx!.strokeStyle = '#FF1744';
+      ctx!.lineWidth = 4;
+      ctx!.shadowBlur = 10;
+      ctx!.shadowColor = '#FF1744';
+      ctx!.beginPath();
+      ctx!.moveTo(0, groundY);
+      ctx!.lineTo(canvasWidth, groundY);
+      ctx!.stroke();
+      ctx!.shadowBlur = 0;
+
+      // Update Player
       const { player } = state;
-
-      // Update player physics
-      player.velocityY += 0.7; // gravity
+      player.velocityY += 0.8; // Gravity
       player.y += player.velocityY;
 
-      // Ground collision
       if (player.y + player.size >= groundY) {
         player.y = groundY - player.size;
         player.velocityY = 0;
-        player.jumping = false;
         player.isAirborne = false;
+        // Snap rotation to nearest 90 degrees when landing
+        player.rotation = Math.round(player.rotation / (Math.PI / 2)) * (Math.PI / 2);
       } else {
         player.isAirborne = true;
+        player.rotation += 0.15; // Continuous rotation in air
       }
-
-      // Update rotation
-      if (player.jumping || player.isAirborne) {
-        player.rotationVelocity = 0.12;
-      } else {
-        player.rotationVelocity *= 0.92;
-      }
-      player.rotation += player.rotationVelocity;
 
       drawPlayer();
 
-      // Update and draw obstacles
-      state.obstacles = state.obstacles.filter((obs: any) => {
+      // Update Obstacles
+      state.obstacles = state.obstacles.filter(obs => {
         obs.x -= state.gameSpeed;
-        
-        // Update moving platforms
-        if (obs.type === 'platform') {
-          obs.y = groundY - 50 + Math.sin(state.frameCount * 0.05 + obs.id) * 15;
-        }
-        
         drawObstacle(obs);
 
-        // Check collision
-        if (checkCollision(player, obs)) {
+        // Collision Detection
+        if (
+          player.x < obs.x + obs.width - 5 &&
+          player.x + player.size > obs.x + 5 &&
+          player.y + player.size > obs.y - obs.height + 5
+        ) {
           state.gameRunning = false;
           setGameState('gameOver');
           onGameOver?.(state.score);
@@ -215,113 +143,73 @@ export const GeometryDash: React.FC<GeometryDashProps> = ({ onGameOver }) => {
         return obs.x > -100;
       });
 
-      // Spawn obstacles with varied patterns
-      const spawnRate = Math.max(45, 130 - state.gameSpeed * 6);
-      if (state.frameCount % spawnRate === 0) {
-        const rand = Math.random();
-        
-        if (rand > 0.75) {
-          // Circle obstacle
-          state.obstacles.push({
-            x: canvasWidth,
-            y: groundY - 40,
-            width: 35,
-            height: 35,
-            type: 'circle',
-          });
-        } else if (rand > 0.5) {
-          // Spike obstacle
-          state.obstacles.push({
-            x: canvasWidth,
-            y: groundY,
-            width: 30,
-            height: 45,
-            type: 'spike',
-          });
-        } else if (rand > 0.25) {
-          // Block obstacle
-          state.obstacles.push({
-            x: canvasWidth,
-            y: groundY - 50,
-            width: 40,
-            height: 50,
-            type: 'block',
-          });
-        } else {
-          // Moving platform
-          state.obstacles.push({
-            x: canvasWidth,
-            y: groundY - 50,
-            width: 50,
-            height: 15,
-            type: 'platform',
-            id: Math.random(),
-          });
-        }
+      // Spawn Obstacles
+      if (state.frameCount % Math.max(40, 100 - Math.floor(state.score / 50)) === 0) {
+        const type = Math.random() > 0.5 ? 'spike' : 'block';
+        state.obstacles.push({
+          x: canvasWidth,
+          y: groundY,
+          width: 30,
+          height: type === 'spike' ? 40 : 30,
+          type: type
+        });
       }
 
-      // Increase difficulty smoothly
-      state.gameSpeed = Math.min(14, 5 + state.score / 500);
       state.score += 1;
       state.frameCount++;
-
-      setScore(state.score);
-      drawScore();
+      state.gameSpeed = 6 + (state.score / 1000);
+      setScore(Math.floor(state.score / 10));
 
       requestAnimationFrame(gameLoop);
     };
 
-    const handleKeyPress = (e: KeyboardEvent) => {
-      if ((e.code === 'Space' || e.code === 'ArrowUp') && state.gameRunning) {
-        e.preventDefault();
-        if (!state.player.jumping && !state.player.isAirborne) {
-          state.player.jumping = true;
-          state.player.velocityY = -16;
-          state.isHolding = true;
-        }
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.code === 'Space' || e.code === 'ArrowUp') && !state.player.isAirborne && state.gameRunning) {
+        state.player.velocityY = -14;
       }
     };
 
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if ((e.code === 'Space' || e.code === 'ArrowUp') && state.gameRunning) {
-        state.isHolding = false;
-      }
-    };
-
-    const handleTouchStart = () => {
-      if (!state.player.jumping && !state.player.isAirborne && state.gameRunning) {
-        state.player.jumping = true;
-        state.player.velocityY = -16;
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    window.addEventListener('keyup', handleKeyUp);
-    canvas.addEventListener('touchstart', handleTouchStart);
-    gameLoop();
+    window.addEventListener('keydown', handleKeyDown);
+    const animationId = requestAnimationFrame(gameLoop);
 
     return () => {
-      window.removeEventListener('keydown', handleKeyPress);
-      window.removeEventListener('keyup', handleKeyUp);
-      canvas.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('keydown', handleKeyDown);
+      cancelAnimationFrame(animationId);
     };
-  }, [onGameOver]);
+  }, [gameState, onGameOver]);
 
   return (
-    <div className="flex flex-col items-center gap-4">
-      <canvas
-        ref={canvasRef}
-        width={800}
-        height={400}
-        className="border-2 rounded-lg cursor-pointer cyan-border"
-        style={{ maxWidth: '100%', height: 'auto' }}
-      />
-      <div className="text-center">
-        <p className="text-sm text-muted-foreground">Press SPACE or tap to jump</p>
+    <div className="flex flex-col items-center gap-6 w-full">
+      <div className="relative w-full max-w-4xl h-[400px] rounded-xl overflow-hidden cyan-border shadow-2xl">
+        <canvas
+          ref={canvasRef}
+          width={800}
+          height={400}
+          className="w-full h-full bg-[#0B0F19]"
+        />
+        
+        {/* Score Display */}
+        <div className="absolute top-6 left-6 text-3xl font-black text-[#00D4FF] italic drop-shadow-[0_0_10px_rgba(0,212,255,0.5)]">
+          SCORE: {score}
+        </div>
+
+        {/* Game Over Overlay */}
         {gameState === 'gameOver' && (
-          <p className="text-lg font-bold text-secondary mt-2">Game Over! Final Score: {score}</p>
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 backdrop-blur-md z-20">
+            <h2 className="text-6xl font-black text-[#FF1744] mb-2 drop-shadow-[0_0_20px_#FF1744]">CRASHED!</h2>
+            <p className="text-[#00D4FF] text-2xl font-bold mb-8">FINAL SCORE: {score}</p>
+            <button 
+              onClick={restartGame}
+              className="px-10 py-4 bg-[#00D4FF] text-[#0B0F19] font-black rounded-sm hover:bg-white transition-colors uppercase tracking-widest shadow-[0_0_20px_rgba(0,212,255,0.4)]"
+            >
+              Retry
+            </button>
+          </div>
         )}
       </div>
+      <p className="text-muted-foreground text-sm uppercase tracking-widest font-bold">
+        [Space] to jump over <span className="text-[#FF1744]">Red Hazards</span>
+      </p>
     </div>
   );
 };

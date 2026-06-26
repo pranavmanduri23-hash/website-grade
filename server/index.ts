@@ -4,6 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
 import multer from "multer";
+import axios from "axios";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -54,22 +55,21 @@ const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 async function callGroqAPI(messages: any[]) {
   try {
-    const response = await fetch(GROQ_API_URL, {
-      method: 'POST',
+    const response = await axios.post(GROQ_API_URL, {
+      model: 'mixtral-8x7b-32768',
+      messages: messages,
+      temperature: 0.7,
+      max_tokens: 1024,
+      stream: true,
+    }, {
       headers: {
         'Authorization': `Bearer ${GROQ_API_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: 'mixtral-8x7b-32768',
-        messages: messages,
-        temperature: 0.7,
-        max_tokens: 1024,
-        stream: true,
-      })
+      responseType: 'stream'
     });
 
-    return response;
+    return response.data;
   } catch (error) {
     console.error('Error calling Groq API:', error);
     throw error;
@@ -124,47 +124,39 @@ async function startServer() {
       res.setHeader('Connection', 'keep-alive');
 
       try {
-        const groqResponse = await callGroqAPI(messages);
+        const stream = await callGroqAPI(messages);
 
-        if (!groqResponse.ok) {
-          const errorData = await groqResponse.text();
-          console.error('Groq API error:', errorData);
-          res.write('I encountered an error processing your request. Please try again.');
-          res.end();
-          return;
-        }
+        stream.on('data', (chunk: any) => {
+          const payload = chunk.toString();
+          const lines = payload.split('\n');
 
-        const reader = groqResponse.body?.getReader();
-        const decoder = new TextDecoder();
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6).trim();
+              if (data === '[DONE]') continue;
 
-        if (reader) {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            const chunk = decoder.decode(value);
-            const lines = chunk.split('\n');
-
-            for (const line of lines) {
-              if (line.startsWith('data: ')) {
-                const data = line.slice(6);
-                if (data === '[DONE]') continue;
-
-                try {
-                  const parsed = JSON.parse(data);
-                  const content = parsed.choices?.[0]?.delta?.content;
-                  if (content) {
-                    res.write(content);
-                  }
-                } catch (e) {
-                  // Skip invalid JSON
+              try {
+                const parsed = JSON.parse(data);
+                const content = parsed.choices?.[0]?.delta?.content;
+                if (content) {
+                  res.write(content);
                 }
+              } catch (e) {
+                // Ignore parsing errors for partial chunks
               }
             }
           }
-        }
+        });
 
-        res.end();
+        stream.on('end', () => {
+          res.end();
+        });
+
+        stream.on('error', (err: any) => {
+          console.error('Stream error:', err);
+          res.write('\n[Error during streaming]');
+          res.end();
+        });
       } catch (error) {
         console.error('Error streaming from Groq:', error);
         res.write('Sorry, I encountered an error. Please try again later.');
