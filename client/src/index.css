@@ -40,45 +40,46 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  /* Neon Arcade Colors */
-  --color-neon-cyan: oklch(0.65 0.22 200);
-  --color-neon-magenta: oklch(0.60 0.25 320);
-  --color-neon-lime: oklch(0.75 0.20 120);
-  --color-dark-bg: oklch(0.12 0.01 280);
+  /* Modern Dark-Blue Arcade Colors */
+  --color-neon-cyan: oklch(0.70 0.24 200);
+  --color-neon-red: oklch(0.65 0.28 15);
+  --color-neon-blue: oklch(0.68 0.25 250);
+  --color-dark-bg: oklch(0.08 0.01 280);
+  --color-dark-card: oklch(0.12 0.02 280);
   --color-glass-white: oklch(0.95 0.01 0);
   --color-muted-purple: oklch(0.25 0.05 280);
 }
 
 :root {
-  /* Dynamic Theme Variables */
-  --primary: oklch(0.65 0.22 200);
-  --primary-foreground: oklch(0.12 0.01 280);
-  --secondary: oklch(0.60 0.25 320);
+  /* Modern Dark-Blue Theme Variables */
+  --primary: oklch(0.70 0.24 200);
+  --primary-foreground: oklch(0.08 0.01 280);
+  --secondary: oklch(0.65 0.28 15);
   --secondary-foreground: oklch(0.95 0.01 0);
-  --accent: oklch(0.75 0.20 120);
-  --accent-foreground: oklch(0.12 0.01 280);
-  --background: oklch(0.12 0.01 280);
+  --accent: oklch(0.68 0.25 250);
+  --accent-foreground: oklch(0.08 0.01 280);
+  --background: oklch(0.08 0.01 280);
   --foreground: oklch(0.95 0.01 0);
   --radius: 0.5rem;
-  --glass-opacity: 0.4;
+  --glass-opacity: 0.5;
 
   /* Standard Variables */
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
-  --card: oklch(0.18 0.02 280);
+  --destructive: oklch(0.65 0.28 15);
+  --destructive-foreground: oklch(0.95 0.01 0);
+  --card: oklch(0.12 0.02 280);
   --card-foreground: oklch(0.95 0.01 0);
-  --popover: oklch(0.18 0.02 280);
+  --popover: oklch(0.12 0.02 280);
   --popover-foreground: oklch(0.95 0.01 0);
-  --muted: oklch(0.25 0.05 280);
-  --muted-foreground: oklch(0.70 0.01 0);
-  --border: oklch(0.25 0.05 280 / 40%);
-  --input: oklch(0.18 0.02 280);
+  --muted: oklch(0.20 0.03 280);
+  --muted-foreground: oklch(0.65 0.02 0);
+  --border: oklch(0.20 0.03 280 / 50%);
+  --input: oklch(0.12 0.02 280);
   --ring: var(--primary);
-  --sidebar: oklch(0.12 0.01 280);
+  --sidebar: oklch(0.08 0.01 280);
   --sidebar-foreground: oklch(0.95 0.01 0);
   --sidebar-accent: var(--primary);
-  --sidebar-accent-foreground: oklch(0.12 0.01 280);
-  --sidebar-border: oklch(0.25 0.05 280 / 40%);
+  --sidebar-accent-foreground: oklch(0.08 0.01 280);
+  --sidebar-border: oklch(0.20 0.03 280 / 50%);
   --sidebar-ring: var(--primary);
   --chart-1: var(--primary);
   --chart-2: var(--secondary);
@@ -86,7 +87,7 @@
   --chart-4: var(--primary);
   --chart-5: var(--secondary);
   --sidebar-primary: var(--primary);
-  --sidebar-primary-foreground: oklch(0.12 0.01 280);
+  --sidebar-primary-foreground: oklch(0.08 0.01 280);
 }
 
 @layer base {
@@ -115,31 +116,66 @@
     padding-right: 1rem;
   }
 
-  /* Glass Card Component */
+  /* Glass Card Component - Dark Blue Theme */
   .glass-card {
-    background: rgba(24, 28, 50, var(--glass-opacity));
+    background: rgba(20, 24, 40, var(--glass-opacity));
     backdrop-filter: blur(12px);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   }
 
-  /* Neon Button */
+  /* Neon Button - Red Accent */
   .neon-button {
     @apply px-4 py-2 font-semibold transition-all duration-300;
-    background: var(--primary);
-    color: var(--primary-foreground);
-    border: 1px solid var(--primary);
+    background: var(--secondary);
+    color: var(--secondary-foreground);
+    border: 2px solid var(--secondary);
     border-radius: var(--radius);
   }
 
   .neon-button:hover {
-    opacity: 0.9;
-    box-shadow: 0 0 12px var(--primary);
+    opacity: 0.85;
+    box-shadow: 0 0 16px var(--secondary);
+    transform: translateY(-2px);
   }
 
   .neon-button:active {
     transform: scale(0.95);
+  }
+
+  /* Cyan Accent Button */
+  .cyan-button {
+    @apply px-4 py-2 font-semibold transition-all duration-300;
+    background: var(--primary);
+    color: var(--primary-foreground);
+    border: 2px solid var(--primary);
+    border-radius: var(--radius);
+  }
+
+  .cyan-button:hover {
+    opacity: 0.85;
+    box-shadow: 0 0 16px var(--primary);
+    transform: translateY(-2px);
+  }
+
+  /* Dark Container */
+  .dark-container {
+    background: rgba(13, 17, 23, 0.8);
+    border: 1px solid rgba(37, 80, 140, 0.4);
+    border-radius: var(--radius);
+  }
+
+  /* Neon Border */
+  .neon-border {
+    border: 2px solid var(--secondary);
+    box-shadow: 0 0 10px var(--secondary);
+  }
+
+  /* Cyan Border */
+  .cyan-border {
+    border: 2px solid var(--primary);
+    box-shadow: 0 0 10px var(--primary);
   }
 }
 

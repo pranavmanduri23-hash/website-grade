@@ -48,6 +48,34 @@ const upload = multer({
   }
 });
 
+// Groq API configuration
+const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
+const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+
+async function callGroqAPI(messages: any[]) {
+  try {
+    const response = await fetch(GROQ_API_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'mixtral-8x7b-32768',
+        messages: messages,
+        temperature: 0.7,
+        max_tokens: 1024,
+        stream: true,
+      })
+    });
+
+    return response;
+  } catch (error) {
+    console.error('Error calling Groq API:', error);
+    throw error;
+  }
+}
+
 async function startServer() {
   const app = express();
   app.use(express.json());
@@ -64,7 +92,91 @@ async function startServer() {
   // Serve uploaded files
   app.use("/uploads", express.static(UPLOADS_DIR));
 
-  // API Routes
+  // Groq Chat API endpoint
+  app.post("/api/chat", async (req, res) => {
+    try {
+      const { message, conversationHistory } = req.body;
+
+      if (!message) {
+        return res.status(400).json({ error: "Message is required" });
+      }
+
+      if (!GROQ_API_KEY) {
+        return res.status(500).json({ error: "Groq API key not configured" });
+      }
+
+      // Build messages array
+      const messages = [
+        {
+          role: 'system',
+          content: 'You are ClassBot, a helpful AI assistant for a school class. You help students with their studies, answer questions about school subjects, provide motivation, and assist with general knowledge. Be friendly, encouraging, and concise in your responses. Keep responses under 150 words when possible.'
+        },
+        ...(conversationHistory || []),
+        {
+          role: 'user',
+          content: message
+        }
+      ];
+
+      // Set response headers for streaming
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+
+      try {
+        const groqResponse = await callGroqAPI(messages);
+
+        if (!groqResponse.ok) {
+          const errorData = await groqResponse.text();
+          console.error('Groq API error:', errorData);
+          res.write('I encountered an error processing your request. Please try again.');
+          res.end();
+          return;
+        }
+
+        const reader = groqResponse.body?.getReader();
+        const decoder = new TextDecoder();
+
+        if (reader) {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value);
+            const lines = chunk.split('\n');
+
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                const data = line.slice(6);
+                if (data === '[DONE]') continue;
+
+                try {
+                  const parsed = JSON.parse(data);
+                  const content = parsed.choices?.[0]?.delta?.content;
+                  if (content) {
+                    res.write(content);
+                  }
+                } catch (e) {
+                  // Skip invalid JSON
+                }
+              }
+            }
+          }
+        }
+
+        res.end();
+      } catch (error) {
+        console.error('Error streaming from Groq:', error);
+        res.write('Sorry, I encountered an error. Please try again later.');
+        res.end();
+      }
+    } catch (error) {
+      console.error('Error in chat endpoint:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // API Routes for presentations
   app.get("/api/presentations", (_req, res) => {
     const data = fs.readFileSync(PRESENTATIONS_FILE, "utf-8");
     res.json(JSON.parse(data));
@@ -120,6 +232,11 @@ async function startServer() {
 
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
+    if (GROQ_API_KEY) {
+      console.log('Groq API is configured and ready');
+    } else {
+      console.warn('Warning: GROQ_API_KEY not set. Chat functionality will not work.');
+    }
   });
 }
 

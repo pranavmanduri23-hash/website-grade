@@ -64,15 +64,15 @@ export default function Header({ className = '', isAdmin, onAdminToggle }: Heade
 
   return (
     <header className={`fixed top-0 left-0 right-0 z-50 border-b ${className}`} style={{
-      background: 'rgba(24, 28, 50, 0.4)',
+      background: 'rgba(13, 17, 23, 0.8)',
       backdropFilter: 'blur(12px)',
-      borderColor: 'rgba(37, 80, 140, 0.4)'
+      borderColor: 'rgba(255, 0, 0, 0.3)'
     }}>
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
         {/* Logo & Title */}
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-            <Zap className="w-5 h-5 text-primary-foreground" />
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-secondary to-primary flex items-center justify-center neon-border">
+            <Zap className="w-5 h-5 text-white" />
           </div>
           <div>
             <h1 className="text-xl font-bold text-primary">Class Hub</h1>
@@ -84,7 +84,7 @@ export default function Header({ className = '', isAdmin, onAdminToggle }: Heade
         <div className="flex items-center gap-3">
           {/* Admin Badge */}
           {isAdmin && (
-            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-secondary/20 border border-secondary/50 pulse-badge">
+            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-secondary/20 border border-secondary/50 animate-pulse">
               <Zap className="w-4 h-4 text-secondary" />
               <span className="text-xs font-semibold text-secondary">ADMIN ACTIVE</span>
             </div>
@@ -95,7 +95,7 @@ export default function Header({ className = '', isAdmin, onAdminToggle }: Heade
             variant="ghost"
             size="icon"
             onClick={toggleTheme}
-            className="glow-border"
+            className="cyan-border"
             title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
           >
             {theme === 'dark' ? (
@@ -128,8 +128,8 @@ export default function Header({ className = '', isAdmin, onAdminToggle }: Heade
 
       {/* PIN Dialog */}
       <Dialog open={showPinDialog} onOpenChange={setShowPinDialog}>
-        <DialogContent className="border-primary/50" style={{
-          background: 'rgba(24, 28, 50, 0.8)',
+        <DialogContent className="border-secondary/50 neon-border" style={{
+          background: 'rgba(13, 17, 23, 0.95)',
           backdropFilter: 'blur(12px)'
         }}>
           <DialogHeader>
@@ -147,8 +147,8 @@ export default function Header({ className = '', isAdmin, onAdminToggle }: Heade
               onKeyDown={(e) => e.key === 'Enter' && handlePinSubmit()}
               className="text-foreground placeholder-muted-foreground"
               style={{
-                background: 'rgba(24, 28, 50, 0.5)',
-                borderColor: 'rgba(37, 80, 140, 0.5)'
+                background: 'rgba(13, 17, 23, 0.8)',
+                borderColor: 'rgba(255, 0, 0, 0.3)'
               }}
               autoFocus
             />
