@@ -59,7 +59,7 @@ async function callGroqAPI(messages: any[]) {
     const validMessages = messages.filter(m => m.content && m.content.trim() !== '');
 
     const response = await axios.post(GROQ_API_URL, {
-      model: 'llama3-8b-8192',
+      model: 'llama-3.3-70b-versatile',
       messages: validMessages,
       temperature: 0.7,
       max_tokens: 1024,
