@@ -50,14 +50,17 @@ const upload = multer({
 });
 
 // Groq API configuration
-const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
+const GROQ_API_KEY = (process.env.GROQ_API_KEY || '').trim();
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 async function callGroqAPI(messages: any[]) {
   try {
+    // Filter out any messages with empty content to prevent 400 errors
+    const validMessages = messages.filter(m => m.content && m.content.trim() !== '');
+
     const response = await axios.post(GROQ_API_URL, {
-      model: 'mixtral-8x7b-32768',
-      messages: messages,
+      model: 'llama3-8b-8192',
+      messages: validMessages,
       temperature: 0.7,
       max_tokens: 1024,
       stream: true,
@@ -168,7 +171,14 @@ async function startServer() {
         });
       } catch (error: any) {
         console.error('Error streaming from Groq:', error.message || error);
-        const errorMessage = error.response?.data?.error?.message || error.message || "Unknown error";
+        
+        let errorMessage = error.message;
+        if (error.response?.data) {
+          // If the error response is a stream, we might need to read it
+          console.error('Groq Error Data:', error.response.data);
+          errorMessage = `Groq API Error: ${error.response.status} - ${error.response.statusText}`;
+        }
+        
         res.write(`Error: ${errorMessage}. Please check your API key and connection.`);
         res.end();
       }
