@@ -5,210 +5,262 @@ interface GeometryDashProps {
 }
 
 export const GeometryDash: React.FC<GeometryDashProps> = ({ onGameOver }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [gameState, setGameState] = useState<'playing' | 'gameOver'>('playing');
-  const [score, setScore] = useState(0);
-  const gameStateRef = useRef({
-    score: 0,
-    gameRunning: true,
-    player: {
-      x: 100,
-      y: 0,
-      size: 30,
-      velocityY: 0,
-      rotation: 0,
-      isAirborne: false,
-    },
-    obstacles: [] as any[],
-    gameSpeed: 6,
-    frameCount: 0,
+  const windowRef = useRef<HTMLDivElement>(null);
+  const cubeRef = useRef<HTMLDivElement>(null);
+  const [attempt, setAttempt] = useState(1);
+  const [progress, setProgress] = useState(0);
+  const [gameState, setGameState] = useState<'start' | 'playing' | 'crashed' | 'victory'>('start');
+
+  const stateRef = useRef({
+    cubeY: 40,
+    velocityY: 0,
+    rotation: 0,
+    isGrounded: true,
+    isHoldingJump: false,
+    isPlaying: false,
+    distanceTraveled: 0,
+    obstacles: [] as { element: HTMLDivElement; data: any }[],
+    GRAVITY: 0.55,
+    JUMP_FORCE: 9.5,
+    FLOOR_Y: 40,
+    BASE_SPEED: 6,
+    LEVEL_LENGTH: 3600,
+    levelMap: [
+      { x: 600, type: 'spike' },
+      { x: 900, type: 'spike' },
+      { x: 1200, type: 'block', w: 60, h: 30, y: 40 },
+      { x: 1215, type: 'spike', y: 70 },
+      { x: 1500, type: 'spike' },
+      { x: 1535, type: 'spike' },
+      { x: 1900, type: 'block', w: 90, h: 30, y: 40 },
+      { x: 2050, type: 'block', w: 90, h: 60, y: 40 },
+      { x: 2300, type: 'spike' },
+      { x: 2500, type: 'spike' },
+      { x: 2535, type: 'spike' },
+      { x: 2570, type: 'spike' },
+      { x: 2900, type: 'block', w: 120, h: 20, y: 80 },
+      { x: 2940, type: 'spike', y: 100 },
+      { x: 3300, type: 'spike' },
+    ]
   });
 
-  const restartGame = () => {
-    const state = gameStateRef.current;
-    state.score = 0;
-    state.gameRunning = true;
-    state.player.y = 0;
-    state.player.velocityY = 0;
-    state.player.rotation = 0;
-    state.obstacles = [];
-    state.gameSpeed = 6;
-    state.frameCount = 0;
-    setScore(0);
+  const startGame = () => {
+    const state = stateRef.current;
+    state.isPlaying = true;
+    state.distanceTraveled = 0;
+    state.cubeY = state.FLOOR_Y;
+    state.velocityY = 0;
+    state.rotation = 0;
     setGameState('playing');
+    setProgress(0);
+
+    // Clear old elements
+    state.obstacles.forEach(obj => obj.element.remove());
+    state.obstacles = [];
+
+    // Build level elements
+    if (windowRef.current) {
+      state.levelMap.forEach(data => {
+        const el = document.createElement("div");
+        el.style.position = 'absolute';
+        el.style.left = '0px';
+        
+        if (data.type === 'spike') {
+          el.style.bottom = `${data.y || state.FLOOR_Y}px`;
+          el.style.width = '0';
+          el.style.height = '0';
+          el.style.borderLeft = '15px solid transparent';
+          el.style.borderRight = '15px solid transparent';
+          el.style.borderBottom = '30px solid #FF1744'; // Red Spikes
+          el.style.filter = 'drop-shadow(0 0 8px #FF1744)';
+        } else if (data.type === 'block') {
+          el.style.backgroundColor = '#00D4FF'; // Cyan Blocks
+          el.style.border = '2px solid #fff';
+          el.style.boxSizing = 'border-box';
+          el.style.boxShadow = '0 0 10px #00D4FF';
+          el.style.width = `${data.w}px`;
+          el.style.height = `${data.h}px`;
+          el.style.bottom = `${data.y}px`;
+        }
+        
+        windowRef.current?.appendChild(el);
+        state.obstacles.push({ element: el, data: data });
+      });
+    }
   };
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const state = stateRef.current;
+    let animationId: number;
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    const update = () => {
+      if (!state.isPlaying) return;
 
-    const state = gameStateRef.current;
-    const canvasWidth = canvas.width;
-    const canvasHeight = canvas.height;
-    const groundY = canvasHeight - 60;
+      state.distanceTraveled += state.BASE_SPEED;
+      const currentProgress = Math.min(Math.floor((state.distanceTraveled / state.LEVEL_LENGTH) * 100), 100);
+      setProgress(currentProgress);
 
-    const drawPlayer = () => {
-      const { player } = state;
-      ctx!.save();
-      ctx!.translate(player.x + player.size / 2, player.y + player.size / 2);
-      ctx!.rotate(player.rotation);
-
-      // Player Cube - Neon Cyan with Red Glow
-      ctx!.fillStyle = '#00D4FF';
-      ctx!.shadowBlur = 15;
-      ctx!.shadowColor = '#00D4FF';
-      ctx!.fillRect(-player.size / 2, -player.size / 2, player.size, player.size);
-      
-      // Outline
-      ctx!.strokeStyle = '#FFFFFF';
-      ctx!.lineWidth = 2;
-      ctx!.strokeRect(-player.size / 2, -player.size / 2, player.size, player.size);
-
-      ctx!.restore();
-    };
-
-    const drawObstacle = (obs: any) => {
-      ctx!.fillStyle = '#FF1744'; // Red Obstacles
-      ctx!.shadowBlur = 10;
-      ctx!.shadowColor = '#FF1744';
-
-      if (obs.type === 'spike') {
-        ctx!.beginPath();
-        ctx!.moveTo(obs.x, obs.y);
-        ctx!.lineTo(obs.x + obs.width / 2, obs.y - obs.height);
-        ctx!.lineTo(obs.x + obs.width, obs.y);
-        ctx!.closePath();
-        ctx!.fill();
-      } else {
-        ctx!.fillRect(obs.x, obs.y - obs.height, obs.width, obs.height);
-      }
-      ctx!.shadowBlur = 0;
-    };
-
-    const gameLoop = () => {
-      if (!state.gameRunning) return;
-
-      // Clear Canvas
-      ctx!.fillStyle = '#0B0F19';
-      ctx!.fillRect(0, 0, canvasWidth, canvasHeight);
-
-      // Draw Ground - RED LINE AS REQUESTED
-      ctx!.strokeStyle = '#FF1744';
-      ctx!.lineWidth = 4;
-      ctx!.shadowBlur = 10;
-      ctx!.shadowColor = '#FF1744';
-      ctx!.beginPath();
-      ctx!.moveTo(0, groundY);
-      ctx!.lineTo(canvasWidth, groundY);
-      ctx!.stroke();
-      ctx!.shadowBlur = 0;
-
-      // Update Player
-      const { player } = state;
-      player.velocityY += 0.8; // Gravity
-      player.y += player.velocityY;
-
-      if (player.y + player.size >= groundY) {
-        player.y = groundY - player.size;
-        player.velocityY = 0;
-        player.isAirborne = false;
-        // Snap rotation to nearest 90 degrees when landing
-        player.rotation = Math.round(player.rotation / (Math.PI / 2)) * (Math.PI / 2);
-      } else {
-        player.isAirborne = true;
-        player.rotation += 0.15; // Continuous rotation in air
+      if (currentProgress >= 100) {
+        state.isPlaying = false;
+        setGameState('victory');
+        return;
       }
 
-      drawPlayer();
+      if (state.isGrounded && state.isHoldingJump) {
+        state.velocityY = state.JUMP_FORCE;
+        state.isGrounded = false;
+      }
 
-      // Update Obstacles
-      state.obstacles = state.obstacles.filter(obs => {
-        obs.x -= state.gameSpeed;
-        drawObstacle(obs);
+      state.velocityY -= state.GRAVITY;
+      state.cubeY += state.velocityY;
 
-        // Collision Detection
-        if (
-          player.x < obs.x + obs.width - 5 &&
-          player.x + player.size > obs.x + 5 &&
-          player.y + player.size > obs.y - obs.height + 5
-        ) {
-          state.gameRunning = false;
-          setGameState('gameOver');
-          onGameOver?.(state.score);
+      let currentFloor = state.FLOOR_Y;
+      let hitAWall = false;
+      const cubeRect = { left: 150, right: 180, bottom: state.cubeY, top: state.cubeY + 30 };
+
+      state.obstacles.forEach(obj => {
+        const elementX = obj.data.x - state.distanceTraveled + 150;
+        obj.element.style.left = `${elementX}px`;
+
+        const obsLeft = elementX;
+        const obsRight = elementX + (obj.data.w || 30);
+        const obsBottom = obj.data.y || state.FLOOR_Y;
+        const obsTop = obsBottom + (obj.data.h || 30);
+
+        if (cubeRect.right > obsLeft + 2 && cubeRect.left < obsRight - 2) {
+          if (obj.data.type === 'spike') {
+            if (cubeRect.bottom < obsTop - 5 && cubeRect.top > obsBottom + 5) {
+              hitAWall = true;
+            }
+          } else if (obj.data.type === 'block') {
+            if (cubeRect.bottom >= obsTop - 10 && state.velocityY <= 0) {
+              currentFloor = obsTop;
+            } else if (cubeRect.bottom < obsTop - 5 && cubeRect.top > obsBottom + 5) {
+              hitAWall = true;
+            }
+          }
         }
-
-        return obs.x > -100;
       });
 
-      // Spawn Obstacles
-      if (state.frameCount % Math.max(40, 100 - Math.floor(state.score / 50)) === 0) {
-        const type = Math.random() > 0.5 ? 'spike' : 'block';
-        state.obstacles.push({
-          x: canvasWidth,
-          y: groundY,
-          width: 30,
-          height: type === 'spike' ? 40 : 30,
-          type: type
-        });
+      if (hitAWall) {
+        state.isPlaying = false;
+        setGameState('crashed');
+        setAttempt(prev => prev + 1);
+        onGameOver?.(currentProgress);
+        return;
       }
 
-      state.score += 1;
-      state.frameCount++;
-      state.gameSpeed = 6 + (state.score / 1000);
-      setScore(Math.floor(state.score / 10));
+      if (state.cubeY <= currentFloor) {
+        state.cubeY = currentFloor;
+        state.velocityY = 0;
+        state.isGrounded = true;
+        state.rotation = Math.round(state.rotation / 90) * 90;
+      } else {
+        state.isGrounded = false;
+        state.rotation += 8;
+      }
 
-      requestAnimationFrame(gameLoop);
+      if (cubeRef.current) {
+        cubeRef.current.style.bottom = `${state.cubeY}px`;
+        cubeRef.current.style.transform = `rotate(${state.rotation}deg)`;
+      }
+
+      animationId = requestAnimationFrame(update);
     };
+
+    if (gameState === 'playing') {
+      animationId = requestAnimationFrame(update);
+    }
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.code === 'Space' || e.code === 'ArrowUp') && !state.player.isAirborne && state.gameRunning) {
-        state.player.velocityY = -14;
+      if (e.code === "Space" || e.code === "ArrowUp") {
+        e.preventDefault();
+        state.isHoldingJump = true;
+        if (gameState !== 'playing') startGame();
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    const animationId = requestAnimationFrame(gameLoop);
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === "Space" || e.code === "ArrowUp") {
+        state.isHoldingJump = false;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
 
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
       cancelAnimationFrame(animationId);
     };
   }, [gameState, onGameOver]);
 
   return (
-    <div className="flex flex-col items-center gap-6 w-full">
-      <div className="relative w-full max-w-4xl h-[400px] rounded-xl overflow-hidden cyan-border shadow-2xl">
-        <canvas
-          ref={canvasRef}
-          width={800}
-          height={400}
-          className="w-full h-full bg-[#0B0F19]"
-        />
-        
-        {/* Score Display */}
-        <div className="absolute top-6 left-6 text-3xl font-black text-[#00D4FF] italic drop-shadow-[0_0_10px_rgba(0,212,255,0.5)]">
-          SCORE: {score}
+    <div className="flex flex-col items-center gap-6 w-full max-w-4xl">
+      <div 
+        ref={windowRef}
+        className="relative w-full h-[350px] bg-[#0B0F19] border-4 border-[#333] rounded-xl overflow-hidden shadow-2xl cyan-border"
+        onMouseDown={() => {
+          stateRef.current.isHoldingJump = true;
+          if (gameState !== 'playing') startGame();
+        }}
+        onMouseUp={() => stateRef.current.isHoldingJump = false}
+      >
+        {/* UI Layer */}
+        <div className="absolute top-6 left-6 right-6 flex justify-between items-center z-10">
+          <div className="text-xl font-black text-[#FF1744] italic tracking-tighter drop-shadow-[0_0_8px_#FF1744]">
+            ATTEMPT {attempt}
+          </div>
+          <div className="text-xl font-black text-[#00D4FF] italic tracking-tighter drop-shadow-[0_0_8px_#00D4FF]">
+            PROGRESS: {progress}%
+          </div>
         </div>
 
-        {/* Game Over Overlay */}
-        {gameState === 'gameOver' && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 backdrop-blur-md z-20">
-            <h2 className="text-6xl font-black text-[#FF1744] mb-2 drop-shadow-[0_0_20px_#FF1744]">CRASHED!</h2>
-            <p className="text-[#00D4FF] text-2xl font-bold mb-8">FINAL SCORE: {score}</p>
+        {/* Floor - RED LINE AS REQUESTED */}
+        <div className="absolute bottom-0 w-full h-[40px] bg-[#FF1744] shadow-[0_-4px_15px_rgba(255,23,68,0.6)]" />
+
+        {/* Cube */}
+        <div 
+          ref={cubeRef}
+          className="absolute left-[150px] w-[30px] h-[30px] bg-[#00D4FF] border-2 border-white rounded-sm shadow-[0_0_15px_#00D4FF] z-20"
+          style={{ bottom: '40px' }}
+        />
+
+        {/* Screen Messages */}
+        {gameState === 'start' && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px] z-30">
+            <h2 className="text-4xl font-black text-white mb-2 tracking-widest animate-pulse">GEOMETRY DASH</h2>
+            <p className="text-[#00D4FF] font-bold">CLICK OR SPACE TO START</p>
+          </div>
+        )}
+
+        {gameState === 'crashed' && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm z-30">
+            <h2 className="text-6xl font-black text-[#FF1744] mb-2 drop-shadow-[0_0_15px_#FF1744]">CRASHED!</h2>
             <button 
-              onClick={restartGame}
-              className="px-10 py-4 bg-[#00D4FF] text-[#0B0F19] font-black rounded-sm hover:bg-white transition-colors uppercase tracking-widest shadow-[0_0_20px_rgba(0,212,255,0.4)]"
+              onClick={startGame}
+              className="px-8 py-3 bg-[#00D4FF] text-[#0B0F19] font-black rounded-sm hover:scale-110 transition-transform uppercase"
             >
-              Retry
+              Retry (Space)
+            </button>
+          </div>
+        )}
+
+        {gameState === 'victory' && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md z-30">
+            <h2 className="text-6xl font-black text-[#00ffcc] mb-2 drop-shadow-[0_0_15px_#00ffcc]">LEVEL COMPLETE!</h2>
+            <button 
+              onClick={startGame}
+              className="px-8 py-3 bg-[#00ffcc] text-[#0B0F19] font-black rounded-sm hover:scale-110 transition-transform uppercase"
+            >
+              Run it back
             </button>
           </div>
         )}
       </div>
       <p className="text-muted-foreground text-sm uppercase tracking-widest font-bold">
-        [Space] to jump over <span className="text-[#FF1744]">Red Hazards</span>
+        Hold <span className="text-[#00D4FF]">Space</span> to continuous jump over <span className="text-[#FF1744]">Red Hazards</span>
       </p>
     </div>
   );
