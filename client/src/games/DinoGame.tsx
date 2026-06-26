@@ -26,7 +26,7 @@ const DINO_FRAME_COUNT = 2;
 const FRAME_TIME = 100;
 const CACTUS_INTERVAL_MIN = 500;
 const CACTUS_INTERVAL_MAX = 2000;
-const SPEED_SCALE_INCREASE = 0.00001;
+const SPEED_SCALE_INCREASE = 0.00005; // Increased for more noticeable speedup
 const WORLD_WIDTH = 100;
 const WORLD_HEIGHT = 30;
 
@@ -121,12 +121,14 @@ export const DinoGame: React.FC<DinoGameProps> = ({ onGameOver }) => {
     window.addEventListener('resize', setPixelToWorldScale);
 
     const spawnObstacle = () => {
-      if (state.isGameOver || !containerRef.current) return;
+      if (state.isGameOver || !containerRef.current || gameState !== 'playing') return;
       const cactus = document.createElement('img');
       cactus.src = '/games/dino/images/cactus.png';
       cactus.style.position = 'absolute';
       cactus.style.bottom = '0';
-      cactus.style.setProperty('--left', '100px');
+      cactus.style.left = '100%';
+      cactus.style.width = 'auto';
+      cactus.style.height = '40px';
       cactus.className = 'dino-cactus';
       containerRef.current.appendChild(cactus);
       state.obstacles.push(cactus);
@@ -218,11 +220,12 @@ export const DinoGame: React.FC<DinoGameProps> = ({ onGameOver }) => {
         // Move obstacles and check collision
         for (let i = state.obstacles.length - 1; i >= 0; i--) {
           const obstacle = state.obstacles[i];
-          const currentLeft = parseFloat(obstacle.style.getPropertyValue('--left') || '0');
-          const newLeft = currentLeft + delta * state.speedScale * 0.05 * -1;
-          obstacle.style.setProperty('--left', `${newLeft}px`);
+          // Use style.left for movement instead of custom property for simplicity in React/DOM interaction
+          const currentLeft = parseFloat(obstacle.style.left) || 100;
+          const newLeft = currentLeft - delta * state.speedScale * 0.08; // Adjusted speed multiplier
+          obstacle.style.left = `${newLeft}%`;
 
-          if (newLeft <= -100) {
+          if (newLeft <= -20) {
             obstacle.remove();
             state.obstacles.splice(i, 1);
             continue;
@@ -233,11 +236,15 @@ export const DinoGame: React.FC<DinoGameProps> = ({ onGameOver }) => {
             const dinoRect = dinoRef.current.getBoundingClientRect();
             const obstacleRect = obstacle.getBoundingClientRect();
 
+            // Shrink hitboxes slightly for better feel
+            const paddingX = dinoRect.width * 0.2;
+            const paddingY = dinoRect.height * 0.2;
+
             if (
-              obstacleRect.left < dinoRect.right &&
-              obstacleRect.top < dinoRect.bottom &&
-              obstacleRect.right > dinoRect.left &&
-              obstacleRect.bottom > dinoRect.top
+              obstacleRect.left + paddingX < dinoRect.right - paddingX &&
+              obstacleRect.top + paddingY < dinoRect.bottom - paddingY &&
+              obstacleRect.right - paddingX > dinoRect.left + paddingX &&
+              obstacleRect.bottom - paddingY > dinoRect.top + paddingY
             ) {
               state.isGameOver = true;
               setGameState('gameOver');
