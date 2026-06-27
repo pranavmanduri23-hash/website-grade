@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 
 interface DinoGameProps {
   onGameOver?: (score: number) => void;
+  background?: string;
 }
 
 interface GameState {
@@ -316,10 +317,11 @@ export const DinoGame: React.FC<DinoGameProps> = ({ onGameOver }) => {
 
       <div
         ref={containerRef}
-        className="relative w-full bg-[#F7F7F7] overflow-hidden rounded-lg border-b-4 border-[#333]"
+        className="relative w-full overflow-hidden rounded-lg border-b-4 border-[#333]"
         style={{
           aspectRatio: '100 / 30',
           fontFamily: '"Press Start 2P", cursive',
+          backgroundColor: background || '#F7F7F7',
         }}
       >
         {/* Score Display */}

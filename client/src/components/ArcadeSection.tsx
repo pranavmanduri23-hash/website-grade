@@ -15,16 +15,23 @@ interface HighScore {
   created_at: string;
 }
 
-export default function ArcadeSection() {
+export default function ArcadeSection({ isAdmin }: { isAdmin?: boolean }) {
   const [activeGame, setActiveGame] = useState<'dino' | 'dash'>('dino');
   const [gameKey, setGameKey] = useState(0);
   const [highScores, setHighScores] = useState<HighScore[]>([]);
   const [playerName, setPlayerName] = useState('Player');
   const [showNameInput, setShowNameInput] = useState(false);
+  const [dinoBg, setDinoBg] = useState(() => localStorage.getItem('dino_bg') || '#F7F7F7');
 
   useEffect(() => {
     fetchHighScores();
   }, []);
+
+  const handleBgChange = (color: string) => {
+    setDinoBg(color);
+    localStorage.setItem('dino_bg', color);
+    toast.success('Dino background updated!');
+  };
 
   const fetchHighScores = async () => {
     try {
@@ -94,8 +101,29 @@ export default function ArcadeSection() {
               New Game
             </Button>
           </div>
-          <div className="bg-slate-900/20 rounded-xl p-4 flex justify-center">
-            <DinoGame key={gameKey} onGameOver={handleGameOver} />
+          <div className="bg-slate-900/20 rounded-xl p-4 flex flex-col items-center gap-4">
+            <DinoGame key={gameKey} onGameOver={handleGameOver} background={dinoBg} />
+            {isAdmin && (
+              <div className="flex items-center gap-4 p-3 bg-slate-800/50 rounded-lg border border-slate-700 w-full max-w-md">
+                <span className="text-sm font-medium text-slate-300">Admin: Change BG</span>
+                <div className="flex gap-2">
+                  {['#F7F7F7', '#E3F2FD', '#F1F8E9', '#FFF3E0', '#FCE4EC', '#263238'].map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => handleBgChange(color)}
+                      className={`w-6 h-6 rounded-full border-2 ${dinoBg === color ? 'border-primary' : 'border-transparent'}`}
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                  <input
+                    type="color"
+                    value={dinoBg}
+                    onChange={(e) => handleBgChange(e.target.value)}
+                    className="w-6 h-6 rounded bg-transparent border-none cursor-pointer"
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </TabsContent>
 

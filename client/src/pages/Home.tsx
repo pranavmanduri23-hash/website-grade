@@ -10,9 +10,10 @@ import AnonymousChat from '@/components/AnonymousChat';
 import PresentationBoard from '@/components/PresentationBoard';
 import ThemeEditor from '@/components/ThemeEditor';
 import Teachers from '@/components/Teachers';
+import MBIPCQuiz from '@/components/MBIPCQuiz';
 import AboutPage from './About';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Gamepad2, Bell, Clock, Trophy, Images, Users, Code, Presentation, Palette } from 'lucide-react';
+import { Gamepad2, Bell, Clock, Trophy, Images, Users, Code, Presentation, Palette, GraduationCap } from 'lucide-react';
 
 /**
  * Home Page - School Class Hub Dashboard
@@ -46,7 +47,7 @@ export default function Home() {
 
           {/* Tabs Navigation */}
           <Tabs defaultValue="dashboard" className="w-full">
-            <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-9' : 'grid-cols-8'} mb-8`} style={{
+            <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-10' : 'grid-cols-9'} mb-8`} style={{
               background: 'rgba(24, 28, 50, 0.4)',
               backdropFilter: 'blur(12px)',
               borderColor: 'rgba(37, 80, 140, 0.4)'
@@ -70,6 +71,10 @@ export default function Home() {
               <TabsTrigger value="arcade" className="flex items-center gap-2">
                 <Gamepad2 className="w-4 h-4" />
                 <span className="hidden sm:inline">Arcade</span>
+              </TabsTrigger>
+              <TabsTrigger value="quiz" className="flex items-center gap-2">
+                <GraduationCap className="w-4 h-4" />
+                <span className="hidden sm:inline">MBIPC Quiz</span>
               </TabsTrigger>
               <TabsTrigger value="teachers" className="flex items-center gap-2">
                 <Users className="w-4 h-4" />
@@ -113,7 +118,12 @@ export default function Home() {
 
             {/* Arcade Tab */}
             <TabsContent value="arcade" className="space-y-6">
-              <ArcadeSection />
+              <ArcadeSection isAdmin={isAdmin} />
+            </TabsContent>
+
+            {/* Quiz Tab */}
+            <TabsContent value="quiz" className="space-y-6">
+              <MBIPCQuiz />
             </TabsContent>
 
             {/* Teachers Tab */}
