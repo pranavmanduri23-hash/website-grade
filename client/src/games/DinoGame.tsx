@@ -31,7 +31,7 @@ const SPEED_SCALE_INCREASE = 0.00005; // Increased for more noticeable speedup
 const WORLD_WIDTH = 100;
 const WORLD_HEIGHT = 30;
 
-export const DinoGame: React.FC<DinoGameProps> = ({ onGameOver }) => {
+export const DinoGame: React.FC<DinoGameProps> = ({ onGameOver, background }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const dinoRef = useRef<HTMLImageElement>(null);
   const groundRefs = useRef<HTMLImageElement[]>([]);
